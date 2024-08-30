@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-print("ENV VARIABLES :: ", dict(os.environ))
-
 HOST = os.getenv("HOST", None)
 DATABASE = os.getenv("DATABASE", None)
 DB_USERNAME = os.getenv("DB_USERNAME", None)
