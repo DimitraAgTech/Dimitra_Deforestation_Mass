@@ -1,4 +1,4 @@
-from constants import COMPLETED, FAILED, IN_PROGRESS, OUTER_CHUNKS
+from constants import COMPLETED, FAILED, IN_PROGRESS, OUTER_CHUNKS, INNER_CHUNKS
 from datetime import datetime
 from utils.logger import logger
 from utils.request import (get_chunked_items, get_pending_mass_request,
@@ -15,9 +15,11 @@ def get_items_from_results(results):
 
 
 def main():
+    logger.info(f"Using outer chunks : {OUTER_CHUNKS}")
+    logger.info(f"Using inner chunks : {INNER_CHUNKS}")
     mass_request = get_pending_mass_request()
     if not mass_request:
-        logger.info("No PENDING requests found, quitting")
+        logger.info("No PENDING requests found, quitting the service")
         return
 
     logger.info(f"Request ID : {mass_request.id}")
