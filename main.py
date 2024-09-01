@@ -11,7 +11,8 @@ from utils.request import (get_available_mass_request, get_chunked_items,
 def get_items_from_results(results):
     result_items = []
     for result in results:
-        result_items += result['data']
+        if result:
+            result_items += result['data']
 
     return result_items
 
@@ -46,14 +47,15 @@ def run_mass_request(mass_request):
         data += get_items_from_results(results)
         mass_request = update_mass_request(mass_request, completed=len(data))
 
-        logger.info(f"Completed : {
-                    mass_request.completed}/{mass_request.total}")
+        logger.info(f"Completed : {mass_request.completed}/{mass_request.total}")
 
     upload_data(mass_request.id, data)
-    update_mass_request(mass_request, status=COMPLETED, completion_timestamp=datetime.now())
+    update_mass_request(mass_request, status=COMPLETED,
+                        completion_timestamp=datetime.now())
 
-    notify_callback(mass_request.id)
-    update_mass_request(mass_request, is_synced=True)
+    success = notify_callback(mass_request.id)
+    error = "Notify callback api failed" if not success else None
+    update_mass_request(mass_request, is_synced=success, error=error)
 
 
 def main():
@@ -67,6 +69,8 @@ def main():
     except Exception as e:
         logger.error(traceback.format_exc())
         logger.error(e)
-        update_mass_request(mass_request, is_synced=False, status=FAILED, error=str(e))
+        update_mass_request(mass_request, is_synced=False,
+                            status=FAILED, error=str(e))
+
 
 main()

@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import os
+import time
 import uuid
 from itertools import batched
 
@@ -24,14 +25,17 @@ def get_available_mass_request():
         if request_id:
             logger.info(f"Request ID found in env : {request_id}")
             mass_request = (
-                query.filter_by(id=uuid.UUID(request_id)).with_for_update().first()
+                query.filter_by(id=uuid.UUID(request_id)
+                                ).with_for_update().first()
             )
             return mass_request
 
         logger.info(f"No request ID found in env")
-        mass_request = query.filter_by(status=PENDING).with_for_update().first()
+        mass_request = query.filter_by(
+            status=PENDING).with_for_update().first()
         if not mass_request:
-            mass_request = query.filter_by(status=FAILED).with_for_update().first()
+            mass_request = query.filter_by(
+                status=FAILED).with_for_update().first()
     except:
         db.session.rollback()
         return None
@@ -94,9 +98,19 @@ def get_chunked_items(items, chunk_size=10):
 
 @time_it
 def make_deforestation_request(data):
-    response = requests.post(
-        f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
-    )
+    try:
+        response = requests.post(
+            f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
+        )
+    except Exception as e:
+        logger.error(f"Error in make_deforestation_request : {e}")
+        try:
+            response = requests.post(
+                f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
+            )
+        except Exception as e:
+            logger.error(f"Error again in make_deforestation_request : {e}")
+            return None
 
     return response.json()
 
@@ -108,11 +122,16 @@ def make_items_chunk_requests(items_chunk, options):
     chunks_with_options = [{**options, "items": chunk} for chunk in chunks]
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
-        results = list(executor.map(make_deforestation_request, chunks_with_options))
+        results = list(executor.map(
+            make_deforestation_request, chunks_with_options))
 
     return results
 
 
 def notify_callback(request_id):
     data = {"request_id": str(request_id)}
-    requests.post(NODE_CALLBACK_URL, json=data)
+    try:
+        requests.post(NODE_CALLBACK_URL, json=data)
+        return True
+    except:
+        return False
