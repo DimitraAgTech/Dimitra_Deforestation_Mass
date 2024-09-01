@@ -18,8 +18,12 @@ headers = {
 
 
 def get_pending_mass_request():
-    mass_request = db.session.query(models.DeforestationRequest).filter_by(
-        status=PENDING).first()
+    try:
+        mass_request = db.session.query(models.DeforestationRequest).filter_by(status=PENDING).with_for_update().first()
+    except:
+        db.session.rollback()
+        return None        
+
     return mass_request
 
 
