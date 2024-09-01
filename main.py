@@ -1,4 +1,5 @@
 from constants import COMPLETED, FAILED, IN_PROGRESS, OUTER_CHUNKS
+from datetime import datetime
 from utils.logger import logger
 from utils.request import (get_chunked_items, get_pending_mass_request,
                            get_request_data, make_items_chunk_requests,
@@ -50,7 +51,7 @@ def main():
                     mass_request.completed}/{mass_request.total}")
 
     upload_data(mass_request.id, data)
-    update_mass_request(mass_request, status=COMPLETED)
+    update_mass_request(mass_request, status=COMPLETED, completion_timestamp=datetime.now())
 
     notify_callback(mass_request.id)
     update_mass_request(mass_request, is_synced=True)

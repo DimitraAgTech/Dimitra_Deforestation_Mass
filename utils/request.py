@@ -23,11 +23,12 @@ def get_pending_mass_request():
     return mass_request
 
 
-def update_mass_request(mass_request, status=None, error=None, is_synced=None, completed=None):
+def update_mass_request(mass_request, status=None, error=None, is_synced=None, completed=None, completion_timestamp=None):
     mass_request.status = status if status != None else mass_request.status
     mass_request.error = error if error != None else mass_request.error
     mass_request.is_synced = is_synced if is_synced != None else mass_request.is_synced
     mass_request.completed = completed if completed != None else mass_request.completed
+    mass_request.completion_timestamp = completion_timestamp if completion_timestamp!=None else mass_request.completion_timestamp
     db.session.commit()
 
     return mass_request
