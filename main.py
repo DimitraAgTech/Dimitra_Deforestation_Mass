@@ -11,7 +11,6 @@ from utils.request import (get_available_mass_request, get_chunked_items,
 def get_items_from_results(results):
     result_items = []
     for result in results:
-        print("result :: ", result)
         result_items += result['data']
 
     return result_items
