@@ -1,7 +1,9 @@
-from constants import COMPLETED, FAILED, IN_PROGRESS, OUTER_CHUNKS, INNER_CHUNKS
+import traceback
 from datetime import datetime
+
+from constants import BATCH_SIZE, COMPLETED, FAILED, IN_PROGRESS, WORKERS
 from utils.logger import logger
-from utils.request import (get_chunked_items, get_pending_mass_request,
+from utils.request import (get_available_mass_request, get_chunked_items,
                            get_request_data, make_items_chunk_requests,
                            notify_callback, update_mass_request, upload_data)
 
@@ -9,20 +11,16 @@ from utils.request import (get_chunked_items, get_pending_mass_request,
 def get_items_from_results(results):
     result_items = []
     for result in results:
+        print("result :: ", result)
         result_items += result['data']
 
     return result_items
 
 
-def main():
-    logger.info(f"Using outer chunks : {OUTER_CHUNKS}")
-    logger.info(f"Using inner chunks : {INNER_CHUNKS}")
-    mass_request = get_pending_mass_request()
-    if not mass_request:
-        logger.info("No PENDING requests found, quitting the service")
-        return
-
-    logger.info(f"Request ID : {mass_request.id}")
+def run_mass_request(mass_request):
+    logger.info(f"Processing request_id : {mass_request.id} with status : {mass_request.status}")
+    logger.info(f"Using batch size : {BATCH_SIZE}")
+    logger.info(f"Using workers : {WORKERS}")
 
     request_data = get_request_data(mass_request.id)
 
@@ -37,7 +35,7 @@ def main():
         return
 
     logger.info(f"Total items : {mass_request.total}")
-    chunked_items = get_chunked_items(items, OUTER_CHUNKS)
+    chunked_items = get_chunked_items(items, BATCH_SIZE*WORKERS)
     total_chunks = len(chunked_items)
 
     data = []
@@ -58,5 +56,18 @@ def main():
     notify_callback(mass_request.id)
     update_mass_request(mass_request, is_synced=True)
 
+
+def main():
+    mass_request = get_available_mass_request()
+    if not mass_request:
+        logger.info("No PENDING requests found, quitting the service")
+        return
+
+    try:
+        run_mass_request(mass_request)
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        logger.error(e)
+        update_mass_request(mass_request, is_synced=False, status=FAILED, error=str(e))
 
 main()
