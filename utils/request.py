@@ -104,6 +104,7 @@ def make_deforestation_request(data):
         )
     except Exception as e:
         logger.error(f"Error in make_deforestation_request : {e}")
+        time.sleep(20)
         try:
             response = requests.post(
                 f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
@@ -112,7 +113,12 @@ def make_deforestation_request(data):
             logger.error(f"Error again in make_deforestation_request : {e}")
             return None
 
-    return response.json()
+    try:
+        return response.json()
+    except Exception as e:
+        logger.info(f"Error data : {data}")
+        logger.error(f"Error in json : {e}")
+        return None
 
 
 def make_items_chunk_requests(items_chunk, options):
