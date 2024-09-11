@@ -8,8 +8,9 @@ from itertools import batched
 
 import requests
 
-from config import DEFORESTATION_API, NODE_CALLBACK_URL, SYNC_KEY
-from constants import BATCH_SIZE, FAILED, PENDING, WORKERS
+from config import (BATCH_SIZE, DEFORESTATION_API, NODE_CALLBACK_URL, SYNC_KEY,
+                    WORKERS)
+from constants import FAILED, PENDING
 from database import db, models
 from utils.logger import logger
 from utils.s3 import download_s3_object, upload_s3_object
@@ -119,8 +120,9 @@ def make_deforestation_request(data):
         return response.json()
     except Exception as e:
         logger.error(traceback.format_exc())
-        logger.error(f"Error data : {data}")
         logger.error(f"Error : {e}")
+        logger.error(f"Error data : {json.dumps(data)}")
+        logger.error(f"Error response content : {response.content}")
         return None
 
 

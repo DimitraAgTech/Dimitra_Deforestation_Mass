@@ -1,7 +1,8 @@
 import traceback
 from datetime import datetime
 
-from constants import BATCH_SIZE, COMPLETED, FAILED, IN_PROGRESS, WORKERS
+from config import BATCH_SIZE, WORKERS
+from constants import COMPLETED, FAILED, IN_PROGRESS
 from utils.logger import logger
 from utils.request import (get_available_mass_request, get_chunked_items,
                            get_request_data, make_items_chunk_requests,
@@ -15,6 +16,17 @@ def get_items_from_results(results):
             result_items += result['data']
 
     return result_items
+
+
+def get_request_time_taken(mass_request):
+    time_delta = mass_request.completion_timestamp - mass_request.timestamp
+
+    if time_delta.seconds > 300:
+        time_taken = f"{time_delta.seconds // 60} min."
+    else:
+        time_taken = f"{time_delta.seconds} sec."
+
+    return time_taken
 
 
 def run_mass_request(mass_request):
@@ -60,8 +72,7 @@ def run_mass_request(mass_request):
     mass_request = update_mass_request(
         mass_request, is_synced=success, error=error)
 
-    time_delta = mass_request.completion_timestamp - mass_request.timestamp
-    logger.info(f"Total time taken : {time_delta.seconds} sec.")
+    logger.info(f"Total time taken : {get_request_time_taken(mass_request)}")
 
 
 def main():
