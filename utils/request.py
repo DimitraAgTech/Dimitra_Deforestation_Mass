@@ -2,6 +2,7 @@ import concurrent.futures
 import json
 import os
 import time
+import traceback
 import uuid
 from itertools import batched
 
@@ -117,8 +118,9 @@ def make_deforestation_request(data):
     try:
         return response.json()
     except Exception as e:
-        logger.info(f"Error data : {data}")
-        logger.error(f"Error in json : {e}")
+        logger.error(traceback.format_exc())
+        logger.error(f"Error data : {data}")
+        logger.error(f"Error : {e}")
         return None
 
 

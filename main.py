@@ -18,7 +18,8 @@ def get_items_from_results(results):
 
 
 def run_mass_request(mass_request):
-    logger.info(f"Processing request_id : {mass_request.id} with status : {mass_request.status}")
+    logger.info(f"Processing request_id : {
+                mass_request.id} with status : {mass_request.status}")
     logger.info(f"Using batch size : {BATCH_SIZE}")
     logger.info(f"Using workers : {WORKERS}")
 
@@ -47,15 +48,20 @@ def run_mass_request(mass_request):
         data += get_items_from_results(results)
         mass_request = update_mass_request(mass_request, completed=len(data))
 
-        logger.info(f"Completed : {mass_request.completed}/{mass_request.total}")
+        logger.info(f"Completed : {
+                    mass_request.completed}/{mass_request.total}")
 
     upload_data(mass_request.id, data)
-    update_mass_request(mass_request, status=COMPLETED,
-                        completion_timestamp=datetime.now())
+    mass_request = update_mass_request(mass_request, status=COMPLETED,
+                                       completion_timestamp=datetime.now())
 
     success = notify_callback(mass_request.id)
     error = "Notify callback api failed" if not success else None
-    update_mass_request(mass_request, is_synced=success, error=error)
+    mass_request = update_mass_request(
+        mass_request, is_synced=success, error=error)
+
+    time_delta = mass_request.completion_timestamp - mass_request.timestamp
+    logger.info(f"Total time taken : {time_delta.seconds} sec.")
 
 
 def main():
