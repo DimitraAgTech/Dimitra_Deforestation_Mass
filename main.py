@@ -1,7 +1,8 @@
 import traceback
 from datetime import datetime
 
-from constants import BATCH_SIZE, COMPLETED, FAILED, IN_PROGRESS, WORKERS
+from config import BATCH_SIZE, WORKERS
+from constants import COMPLETED, FAILED, IN_PROGRESS
 from utils.logger import logger
 from utils.request import (get_available_mass_request, get_chunked_items,
                            get_request_data, make_items_chunk_requests,
@@ -17,8 +18,20 @@ def get_items_from_results(results):
     return result_items
 
 
+def get_request_time_taken(mass_request):
+    time_delta = mass_request.completion_timestamp - mass_request.timestamp
+
+    if time_delta.seconds > 300:
+        time_taken = f"{time_delta.seconds // 60} min."
+    else:
+        time_taken = f"{time_delta.seconds} sec."
+
+    return time_taken
+
+
 def run_mass_request(mass_request):
-    logger.info(f"Processing request_id : {mass_request.id} with status : {mass_request.status}")
+    logger.info(f"Processing request_id : {
+                mass_request.id} with status : {mass_request.status}")
     logger.info(f"Using batch size : {BATCH_SIZE}")
     logger.info(f"Using workers : {WORKERS}")
 
@@ -47,15 +60,19 @@ def run_mass_request(mass_request):
         data += get_items_from_results(results)
         mass_request = update_mass_request(mass_request, completed=len(data))
 
-        logger.info(f"Completed : {mass_request.completed}/{mass_request.total}")
+        logger.info(f"Completed : {
+                    mass_request.completed}/{mass_request.total}")
 
     upload_data(mass_request.id, data)
-    update_mass_request(mass_request, status=COMPLETED,
-                        completion_timestamp=datetime.now())
+    mass_request = update_mass_request(mass_request, status=COMPLETED,
+                                       completion_timestamp=datetime.now())
 
     success = notify_callback(mass_request.id)
     error = "Notify callback api failed" if not success else None
-    update_mass_request(mass_request, is_synced=success, error=error)
+    mass_request = update_mass_request(
+        mass_request, is_synced=success, error=error)
+
+    logger.info(f"Total time taken : {get_request_time_taken(mass_request)}")
 
 
 def main():

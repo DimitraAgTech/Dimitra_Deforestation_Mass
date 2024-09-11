@@ -2,13 +2,15 @@ import concurrent.futures
 import json
 import os
 import time
+import traceback
 import uuid
 from itertools import batched
 
 import requests
 
-from config import DEFORESTATION_API, NODE_CALLBACK_URL, SYNC_KEY
-from constants import BATCH_SIZE, FAILED, PENDING, WORKERS
+from config import (BATCH_SIZE, DEFORESTATION_API, NODE_CALLBACK_URL, SYNC_KEY,
+                    WORKERS)
+from constants import FAILED, PENDING
 from database import db, models
 from utils.logger import logger
 from utils.s3 import download_s3_object, upload_s3_object
@@ -103,23 +105,23 @@ def make_deforestation_request(data):
         response = requests.post(
             f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
         )
+        return response.json()
     except Exception as e:
+        logger.error(traceback.format_exc())
         logger.error(f"Error in make_deforestation_request : {e}")
-        time.sleep(20)
+        logger.error(f"Error response content : {response.content}")
+        logger.error(f"Error data : {json.dumps(data)}")
+        logger.error(f"Retrying request after 30 sec.")
+        time.sleep(30)
+        logger.error(f"Retrying this request")
         try:
             response = requests.post(
                 f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
             )
+            return response.json()
         except Exception as e:
             logger.error(f"Error again in make_deforestation_request : {e}")
             return None
-
-    try:
-        return response.json()
-    except Exception as e:
-        logger.info(f"Error data : {data}")
-        logger.error(f"Error in json : {e}")
-        return None
 
 
 def make_items_chunk_requests(items_chunk, options):
