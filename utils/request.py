@@ -36,7 +36,8 @@ def get_available_mass_request():
         if not mass_request:
             mass_request = query.filter_by(
                 status=FAILED).with_for_update().first()
-    except:
+    except Exception as e:
+        logger.error(e)
         db.session.rollback()
         return None
 
