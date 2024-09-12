@@ -21,4 +21,7 @@ DATABASE_URI = f"mysql+pymysql://{DB_USERNAME}:{PASSWORD}@{HOST}/{DATABASE}"
 DEFORESTATION_API = os.getenv("DEFORESTATION_API", None)
 NODE_CALLBACK_URL = os.getenv("NODE_CALLBACK_URL", None)
 
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", 15))
+WORKERS = int(os.getenv("WORKERS", 10))
+
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
