@@ -70,6 +70,15 @@ def update_mass_request(
     return mass_request
 
 
+def get_items_from_results(results):
+    result_items = []
+    for result in results:
+        if result:
+            result_items += result["data"]
+
+    return result_items
+
+
 def get_request_data(request_id):
     s3_key = f"mass_deforestation/{request_id}/input.json"
 
@@ -116,7 +125,9 @@ def make_deforestation_request(data):
         logger.error(f"Retrying this request")
         try:
             response = requests.post(
-                f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
+                f"{DEFORESTATION_API}/detect-deforestation-bulk",
+                json=data,
+                headers=headers,
             )
             return response.json()
         except Exception as e:
@@ -144,3 +155,23 @@ def notify_callback(request_id):
         return True
     except:
         return False
+
+
+def generate_data(mass_request, items, options):
+    logger.info(f"Total items : {mass_request.total}")
+    chunked_items = get_chunked_items(items, BATCH_SIZE * WORKERS)
+    total_chunks = len(chunked_items)
+
+    data = []
+    for i, items_chunk in enumerate(chunked_items):
+        logger.info(f"Processing chunk : {i+1}/{total_chunks}")
+
+        results = make_items_chunk_requests(items_chunk, options)
+
+        data += get_items_from_results(results)
+        mass_request = update_mass_request(mass_request, completed=len(data))
+
+        logger.info(f"Completed : {
+                    mass_request.completed}/{mass_request.total}")
+
+    return data, mass_request
