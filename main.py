@@ -23,7 +23,7 @@ def get_request_time_taken(mass_request):
 
 
 def insert_id_in_items(items):
-    return [{"id": uuid.uuid4(), **item} for item in items]
+    return [{"id": str(uuid.uuid4()), **item} for item in items]
 
 
 def get_item_id_map(items):
