@@ -3,7 +3,8 @@ import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from report_generator.google_maps import download_coords_map_image
+from report_generator.google_maps import (download_coords_map_image,
+                                          generate_circle_coordinates)
 from report_generator.report_file import ReportGenerator
 from utils.s3 import download_s3_object, upload_s3_object
 
@@ -17,9 +18,18 @@ def download_deforestation_image(image_key):
 def process_item(item, item_id_map):
     id = item.get("id")
     name = item.get("name")
-    coords = item_id_map[id].get("coordinates")
 
-    google_image_path = download_coords_map_image(coords)
+    original_input = item_id_map[id]
+    if "radius" in original_input:
+        latitude = original_input.get("latitude")
+        longitude = original_input.get("longitude")
+        radius = original_input.get("radius")
+        map_coords = generate_circle_coordinates(latitude, longitude, radius)
+        google_image_path = download_coords_map_image(map_coords)
+    else:
+        map_coords = original_input.get("coordinates")
+        google_image_path = download_coords_map_image(map_coords)
+
     deforestation_image_path = download_deforestation_image(
         item["result"]["finalDetectionS3Key"]
     )
