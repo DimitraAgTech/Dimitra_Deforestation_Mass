@@ -138,8 +138,6 @@ def make_deforestation_request(data):
 
 
 def make_items_chunk_requests(items_chunk, options):
-    # items chunk will have 50 items
-    # divide these into another chunked list of 10 items each and 5 chunks
     chunks = get_chunked_items(items_chunk, chunk_size=BATCH_SIZE)
     chunks_with_options = [{**options, "items": chunk} for chunk in chunks]
 
