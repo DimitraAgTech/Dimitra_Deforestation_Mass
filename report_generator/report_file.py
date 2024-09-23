@@ -244,6 +244,18 @@ class ReportGenerator:
         pdf.set_xy(margin_x, info_text_start_y + info_text_spacing * 8.5 + 8)
         pdf.write(6, "Type(s) of protected area(s) intercepted by the geofence(s): ")
 
+        if "no invasion" in protectedAreasAlerts.lower():
+            pdf.set_text_color(46, 125, 50)
+        elif (
+            ("protected" in protectedAreasAlerts.lower())
+            or ("habitat" in protectedAreasAlerts.lower())
+            or ("national" in protectedAreasAlerts.lower())
+            or ("nature" in protectedAreasAlerts.lower())
+        ):
+            pdf.set_text_color(198, 40, 40)
+        else:
+            pdf.set_text_color(12, 12, 12)
+
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("Helvetica", "B", 11)
         pdf.write(6, protectedAreasAlerts)
@@ -256,7 +268,13 @@ class ReportGenerator:
             "Does the geofence(s) intercept indigenous land(s) recognized by the government?: ",
         )
 
-        pdf.set_text_color(0, 0, 0)
+        if "no" in indigenousLand.lower():
+            pdf.set_text_color(46, 125, 50)
+        elif "yes" in indigenousLand.lower():
+            pdf.set_text_color(198, 40, 40)
+        else:
+            pdf.set_text_color(12, 12, 12)
+
         pdf.set_font("Helvetica", "B", 11)
         pdf.write(6, indigenousLand)
 
