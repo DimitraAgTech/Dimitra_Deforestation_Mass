@@ -70,6 +70,15 @@ def update_mass_request(
     return mass_request
 
 
+def get_items_from_results(results):
+    result_items = []
+    for result in results:
+        if result:
+            result_items += result["data"]
+
+    return result_items
+
+
 def get_request_data(request_id):
     s3_key = f"mass_deforestation/{request_id}/input.json"
 
@@ -101,6 +110,7 @@ def get_chunked_items(items, chunk_size=10):
 
 @time_it
 def make_deforestation_request(data):
+    response = None
     try:
         response = requests.post(
             f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
@@ -109,14 +119,17 @@ def make_deforestation_request(data):
     except Exception as e:
         logger.error(traceback.format_exc())
         logger.error(f"Error in make_deforestation_request : {e}")
-        logger.error(f"Error response content : {response.content}")
+        logger.error(f"Error response content : {
+                     response.content if response else response}")
         logger.error(f"Error data : {json.dumps(data)}")
         logger.error(f"Retrying request after 30 sec.")
         time.sleep(30)
         logger.error(f"Retrying this request")
         try:
             response = requests.post(
-                f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
+                f"{DEFORESTATION_API}/detect-deforestation-bulk",
+                json=data,
+                headers=headers,
             )
             return response.json()
         except Exception as e:
@@ -125,8 +138,6 @@ def make_deforestation_request(data):
 
 
 def make_items_chunk_requests(items_chunk, options):
-    # items chunk will have 50 items
-    # divide these into another chunked list of 10 items each and 5 chunks
     chunks = get_chunked_items(items_chunk, chunk_size=BATCH_SIZE)
     chunks_with_options = [{**options, "items": chunk} for chunk in chunks]
 
@@ -144,3 +155,23 @@ def notify_callback(request_id):
         return True
     except:
         return False
+
+
+def generate_data(mass_request, items, options):
+    logger.info(f"Total items : {mass_request.total}")
+    chunked_items = get_chunked_items(items, BATCH_SIZE * WORKERS)
+    total_chunks = len(chunked_items)
+
+    data = []
+    for i, items_chunk in enumerate(chunked_items):
+        logger.info(f"Processing chunk : {i+1}/{total_chunks}")
+
+        results = make_items_chunk_requests(items_chunk, options)
+
+        data += get_items_from_results(results)
+        mass_request = update_mass_request(mass_request, completed=len(data))
+
+        logger.info(f"Completed : {
+                    mass_request.completed}/{mass_request.total}")
+
+    return data, mass_request
