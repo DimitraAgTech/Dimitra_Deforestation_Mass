@@ -1,21 +1,14 @@
 import traceback
+import uuid
 from datetime import datetime
 
 from config import BATCH_SIZE, WORKERS
 from constants import COMPLETED, FAILED, IN_PROGRESS
+from report_generator.generator import generate_report_and_upload_data
 from utils.logger import logger
-from utils.request import (get_available_mass_request, get_chunked_items,
-                           get_request_data, make_items_chunk_requests,
-                           notify_callback, update_mass_request, upload_data)
-
-
-def get_items_from_results(results):
-    result_items = []
-    for result in results:
-        if result:
-            result_items += result['data']
-
-    return result_items
+from utils.request import (generate_data, get_available_mass_request,
+                           get_request_data, notify_callback,
+                           update_mass_request, upload_data)
 
 
 def get_request_time_taken(mass_request):
@@ -29,6 +22,14 @@ def get_request_time_taken(mass_request):
     return time_taken
 
 
+def insert_id_in_items(items):
+    return [{"id": str(uuid.uuid4()), **item} for item in items]
+
+
+def get_item_id_map(items):
+    return {item.get("id"): item for item in items}
+
+
 def run_mass_request(mass_request):
     logger.info(f"Processing request_id : {
                 mass_request.id} with status : {mass_request.status}")
@@ -40,6 +41,8 @@ def run_mass_request(mass_request):
     mass_request = update_mass_request(mass_request, status=IN_PROGRESS)
 
     items = request_data.get('items')
+    generate_report = request_data.get('generateReport', False)
+    invoke_callback = request_data.get('invokeCallback', True)
     options = {**request_data, "items": None}
 
     if not items:
@@ -47,30 +50,23 @@ def run_mass_request(mass_request):
             mass_request, status=FAILED, error="items not found in the request")
         return
 
-    logger.info(f"Total items : {mass_request.total}")
-    chunked_items = get_chunked_items(items, BATCH_SIZE*WORKERS)
-    total_chunks = len(chunked_items)
+    items = insert_id_in_items(items)
+    data, mass_request = generate_data(mass_request, items, options)
 
-    data = []
-    for i, items_chunk in enumerate(chunked_items):
-        logger.info(f"Processing chunk : {i+1}/{total_chunks}")
+    if not generate_report:
+        upload_data(mass_request.id, data)
+    else:
+        item_id_map = get_item_id_map(items)
+        generate_report_and_upload_data(mass_request.id, item_id_map, data)
 
-        results = make_items_chunk_requests(items_chunk, options)
-
-        data += get_items_from_results(results)
-        mass_request = update_mass_request(mass_request, completed=len(data))
-
-        logger.info(f"Completed : {
-                    mass_request.completed}/{mass_request.total}")
-
-    upload_data(mass_request.id, data)
     mass_request = update_mass_request(mass_request, status=COMPLETED,
                                        completion_timestamp=datetime.now())
 
-    success = notify_callback(mass_request.id)
-    error = "Notify callback api failed" if not success else None
-    mass_request = update_mass_request(
-        mass_request, is_synced=success, error=error)
+    if invoke_callback:
+        success = notify_callback(mass_request.id)
+        error = "Notify callback api failed" if not success else None
+        mass_request = update_mass_request(
+            mass_request, is_synced=success, error=error)
 
     logger.info(f"Total time taken : {get_request_time_taken(mass_request)}")
 
