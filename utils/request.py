@@ -8,9 +8,12 @@ from itertools import batched
 
 import requests
 
-from config import (BATCH_SIZE, DEFORESTATION_API, NODE_CALLBACK_URL, SYNC_KEY,
-                    WORKERS)
-from constants import FAILED, PENDING
+from config import (BATCH_SIZE, DEFORESTATION_API,
+                    NODE_DEFORESTATION_CALLBACK_URL,
+                    NODE_GEOFENCE_INFO_CALLBACK_URL, REQUEST_ID, SYNC_KEY,
+                    TASK_TYPE, WORKERS)
+from constants import (DEFORESTATION_TASK_TYPE, FAILED,
+                       GEOFENCE_INFO_TASK_TYPE, PENDING)
 from database import db, models
 from utils.logger import logger
 from utils.s3 import download_s3_object, upload_s3_object
@@ -20,14 +23,21 @@ headers = {"Auth-Token": SYNC_KEY, "Content-Type": "application/json"}
 
 
 def get_available_mass_request():
-    request_id = os.getenv("REQUEST_ID")
+    if TASK_TYPE == DEFORESTATION_TASK_TYPE:
+        query = db.session.query(models.DeforestationRequest)
+    elif TASK_TYPE == GEOFENCE_INFO_TASK_TYPE:
+        query = db.session.query(models.GeofenceInfoRequest)
+    else:
+        raise Exception("TASK_TYPE is incorrect")
 
-    query = db.session.query(models.DeforestationRequest)
     try:
-        if request_id:
-            logger.info(f"Request ID found in env : {request_id}")
+        if REQUEST_ID:
+            logger.info(
+                f"Request ID found in env : {
+                    REQUEST_ID} for Task type : {TASK_TYPE}"
+            )
             mass_request = (
-                query.filter_by(id=uuid.UUID(request_id)
+                query.filter_by(id=uuid.UUID(REQUEST_ID)
                                 ).with_for_update().first()
             )
             return mass_request
@@ -80,7 +90,10 @@ def get_items_from_results(results):
 
 
 def get_request_data(request_id):
-    s3_key = f"mass_deforestation/{request_id}/input.json"
+    if TASK_TYPE == DEFORESTATION_TASK_TYPE:
+        s3_key = f"mass_deforestation/{request_id}/input.json"
+    elif TASK_TYPE == GEOFENCE_INFO_TASK_TYPE:
+        s3_key = f"mass_geofence_info/{request_id}/input.json"
 
     os.makedirs("temp", exist_ok=True)
     temp_path = os.path.join("temp", "input.json")
@@ -92,7 +105,10 @@ def get_request_data(request_id):
 
 
 def upload_data(request_id, data):
-    s3_key = f"mass_deforestation/{request_id}/output.json"
+    if TASK_TYPE == DEFORESTATION_TASK_TYPE:
+        s3_key = f"mass_deforestation/{request_id}/output.json"
+    elif TASK_TYPE == GEOFENCE_INFO_TASK_TYPE:
+        s3_key = f"mass_geofence_info/{request_id}/output.json"
 
     os.makedirs("temp", exist_ok=True)
     temp_path = os.path.join("temp", "output.json")
@@ -115,12 +131,14 @@ def make_deforestation_request(data):
         response = requests.post(
             f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
         )
-        return response.json()
+        result = response.json()
+        if 'data' not in result:
+            raise Exception("Invalid result from API, result has not data")
+        return result
     except Exception as e:
         logger.error(traceback.format_exc())
         logger.error(f"Error in make_deforestation_request : {e}")
-        logger.error(f"Error response content : {
-                     response.content if response else response}")
+        logger.error(f"Error response content : {response.content if response else response}")
         logger.error(f"Error data : {json.dumps(data)}")
         logger.error(f"Retrying request after 30 sec.")
         time.sleep(30)
@@ -131,9 +149,42 @@ def make_deforestation_request(data):
                 json=data,
                 headers=headers,
             )
-            return response.json()
+            result = response.json()
+            if 'data' not in result:
+                raise Exception("Invalid result from API, result has not data")
+            return result
         except Exception as e:
             logger.error(f"Error again in make_deforestation_request : {e}")
+            logger.error(f"Error response content : {response.content if response else response}")
+            logger.error(f"Error data : {json.dumps(data)}")
+            return None
+
+
+@time_it
+def make_geofence_info_request(data):
+    response = None
+    try:
+        response = requests.post(
+            f"{DEFORESTATION_API}/geofence-info-bulk", json=data, headers=headers)
+        return response.json()
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        logger.error(f"Error in make_geofence_info_request : {e}")
+        logger.error(f"Error response content : {
+                     response.content if response else response}")
+        logger.error(f"Error data : {json.dumps(data)}")
+        logger.error(f"Retrying request after 30 sec.")
+        time.sleep(30)
+        logger.error(f"Retrying this request")
+        try:
+            response = requests.post(
+                f"{DEFORESTATION_API}/geofence-info-bulk",
+                json=data,
+                headers=headers,
+            )
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error again in make_geofence_info_request : {e}")
             return None
 
 
@@ -141,9 +192,15 @@ def make_items_chunk_requests(items_chunk, options):
     chunks = get_chunked_items(items_chunk, chunk_size=BATCH_SIZE)
     chunks_with_options = [{**options, "items": chunk} for chunk in chunks]
 
+    if TASK_TYPE == DEFORESTATION_TASK_TYPE:
+        request_func = make_deforestation_request
+    elif TASK_TYPE == GEOFENCE_INFO_TASK_TYPE:
+        request_func = make_geofence_info_request
+    else:
+        raise Exception("Task type is invalid")
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=WORKERS) as executor:
-        results = list(executor.map(
-            make_deforestation_request, chunks_with_options))
+        results = list(executor.map(request_func, chunks_with_options))
 
     return results
 
@@ -151,7 +208,10 @@ def make_items_chunk_requests(items_chunk, options):
 def notify_callback(request_id):
     data = {"request_id": str(request_id)}
     try:
-        requests.post(NODE_CALLBACK_URL, json=data)
+        if TASK_TYPE == DEFORESTATION_TASK_TYPE:
+            requests.post(NODE_DEFORESTATION_CALLBACK_URL, json=data)
+        if TASK_TYPE == GEOFENCE_INFO_TASK_TYPE:
+            requests.post(NODE_GEOFENCE_INFO_CALLBACK_URL, json=data)
         return True
     except:
         return False

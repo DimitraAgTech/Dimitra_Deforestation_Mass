@@ -2,6 +2,8 @@ import os
 
 from dotenv import load_dotenv
 
+from constants import DEFORESTATION_TASK_TYPE
+
 load_dotenv()
 
 HOST = os.getenv("HOST")
@@ -17,11 +19,15 @@ S3_RESULT_BUCKET = os.getenv("S3_RESULT_BUCKET")
 SYNC_KEY = os.getenv("SYNC_KEY")
 
 DEFORESTATION_API = os.getenv("DEFORESTATION_API")
-NODE_CALLBACK_URL = os.getenv("NODE_CALLBACK_URL")
+NODE_DEFORESTATION_CALLBACK_URL = os.getenv("NODE_DEFORESTATION_CALLBACK_URL")
+NODE_GEOFENCE_INFO_CALLBACK_URL = os.getenv("NODE_GEOFENCE_INFO_CALLBACK_URL")
 GOOGLE_MAP_API_DEV_KEY = os.getenv("GOOGLE_MAP_API_DEV_KEY")
 
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", 15))
 WORKERS = int(os.getenv("WORKERS", 10))
+
+REQUEST_ID = os.getenv("REQUEST_ID")
+TASK_TYPE = os.getenv("TASK_TYPE", DEFORESTATION_TASK_TYPE)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
