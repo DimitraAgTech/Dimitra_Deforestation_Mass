@@ -135,8 +135,7 @@ def make_deforestation_request(data):
     except Exception as e:
         logger.error(traceback.format_exc())
         logger.error(f"Error in make_deforestation_request : {e}")
-        logger.error(f"Error response content : {
-                     response.content if response else response}")
+        logger.error(f"Error response content : {response.content if response else response}")
         logger.error(f"Error data : {json.dumps(data)}")
         logger.error(f"Retrying request after 30 sec.")
         time.sleep(30)
@@ -150,6 +149,8 @@ def make_deforestation_request(data):
             return response.json()
         except Exception as e:
             logger.error(f"Error again in make_deforestation_request : {e}")
+            logger.error(f"Error response content : {response.content if response else response}")
+            logger.error(f"Error data : {json.dumps(data)}")
             return None
 
 
