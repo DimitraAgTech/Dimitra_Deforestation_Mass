@@ -131,7 +131,10 @@ def make_deforestation_request(data):
         response = requests.post(
             f"{DEFORESTATION_API}/detect-deforestation-bulk", json=data, headers=headers
         )
-        return response.json()
+        result = response.json()
+        if 'data' not in result:
+            raise Exception("Invalid result from API, result has not data")
+        return result
     except Exception as e:
         logger.error(traceback.format_exc())
         logger.error(f"Error in make_deforestation_request : {e}")
@@ -146,7 +149,10 @@ def make_deforestation_request(data):
                 json=data,
                 headers=headers,
             )
-            return response.json()
+            result = response.json()
+            if 'data' not in result:
+                raise Exception("Invalid result from API, result has not data")
+            return result
         except Exception as e:
             logger.error(f"Error again in make_deforestation_request : {e}")
             logger.error(f"Error response content : {response.content if response else response}")
